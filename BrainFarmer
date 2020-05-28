@@ -3,15 +3,14 @@
 **********************************************************************************************************
 Name: BrainFarmer
 Author: Absolute Truth
-Script Version: 2.2
-Release Date: December 24, 2018
+Script Version: 3.0
+Release Date: May 25, 2020
 */
 
 
 /*********************************************************************************************************
                                      LIST OF SPREADSHEETS AND PURPOSES OF EACH
 **********************************************************************************************************
-
 * Account View
     Description: Similar to EveQueue, but on an account basis instead of a character basis.
     Use: Allows the user to manually enter subscription end dates. Automatically pulls character wallet balances, character subscription types, and extractions. Great for a reference while doing extractions.
@@ -24,7 +23,6 @@ Release Date: December 24, 2018
     Description: A simple alphabetically sorted list of character names from the Auth Data sheet. Also sorts and stores data for the character locations.
     Use: Used for the data validation in Delete Character (alphabetically sorts the character names for the list). Used to store and sort data for Character Tracker
     Note: There are two places where auther characters are listed and sorted. This sheet, and SkillQueues. When deleting a character, the delete script must delete the character from the SkillQueues list first, so we cannot rely on that for the data validation. Hence the necessity of this sheet.
-
 * CharacterSkills
     Description: Breakdown for an individual character of trained skills, skill queue, attribute values, and available remaps
     Use: Reads data from SkillsHidden to find active skill queue data, attributes, and trained skills for a specific character, then uses SkillsList to resolve type IDs to names and categories.
@@ -82,7 +80,6 @@ Release Date: December 24, 2018
 * StructureData (Hidden Sheet)
     Description: Stores price data for all items in a structure
     Use: Stores price data from a structure market. Structure ID is defined in settings. Authing Character is main character as set in Settings.
-
 * Utilities
     Description: Miscellaneous Utilities. Cerebral Accelerator calculator, Injector calculator, character pricer
     Use: Fill out the fields in yellow with the specified information.
@@ -93,7 +90,6 @@ Release Date: December 24, 2018
 *********************************************************************************************************/
 
 ss = SpreadsheetApp.getActiveSpreadsheet();
-
 /**
 * Gets the skill queues for all authed characters
 * @returns an array containing the following values for each character:
@@ -106,22 +102,26 @@ ss = SpreadsheetApp.getActiveSpreadsheet();
     Training Level = the level of the skill actively being trained (i.e., if the character is training Titan V, Training Level = 5)
 */
 
-function get_character_skillqueues_all() {
+function get_skill_queue_data(client)
+{
+  try
+  {
+    var response = client.setFunction("characters_character_skillqueue").executeRaw({});
+  }
+  catch(e)
+  {
+    Logger.log("There was an error with this request")
+    Logger.log(e)
+    var response = client.setFunction("characters_character_skillqueue").executeRaw({});
+  }
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var auth_sheet = ss.getSheetByName('Auth Data');
   var skill_list = ss.getSheetByName('SkillsList').getDataRange().getValues();
-  var characters = auth_sheet.getDataRange().getValues();
-  //var previousSP = [];
   var result = [];
-  characters.forEach(function(character) {
-    var token = GESI.getAccessToken(character[0]);
-    if (token === 'Expired') { token = GESI.refreshToken(character[0]); }
-    var response = doRequest_('https://esi.evetech.net/v2/characters/' + character[1] + '/skillqueue/', token);
-    var queue_end = response[response.length - 1];
-    var current = response.find(function(skill) { return (new Date(skill.finish_date) >= new Date()) });
-    var past = response.find(function(skill) { return (new Date(skill.finish_date) < new Date()) });
-    var previouslygainedSP = 0;
-    for (var x = 0; x<response.length; x++)
+  var queue_end = response[response.length - 1];
+  var current = response.find(function(skill) { return (new Date(skill.finish_date) >= new Date()) });
+  var past = response.find(function(skill) { return (new Date(skill.finish_date) < new Date()) });
+  var previouslygainedSP = 0;
+  for (var x = 0; x<response.length; x++)
     {
      if (new Date(response[x].finish_date) < new Date())
      {
@@ -135,7 +135,6 @@ function get_character_skillqueues_all() {
       var skill_name = skill_list.find(function(s) { return s[0] === current.skill_id })[1];
     }
     result.push([
-      character[0],
       current ? current.skill_id : queue_end && queue_end.finish_date ? 'No skills in queue' : 'N/A', 
       skill_name ? skill_name : 'N/A',
       current ? current.start_date : 'N/A',
@@ -143,75 +142,75 @@ function get_character_skillqueues_all() {
       queue_end && queue_end.finish_date ? queue_end.finish_date : 'N/A',
       current ? current.finished_level : 'N/A',
       previouslygainedSP
-    ])
-  });
+    ]);
   return result;
 }
 
-function get_character_attributes_all() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var auth_sheet = ss.getSheetByName('Auth Data');
-  var characters = auth_sheet.getDataRange().getValues();
+
+function get_attribute_data(client)
+{
   var result = [];
-  characters.forEach(function(character) {
-    var token = GESI.getAccessToken(character[0]);
-    if (token === 'Expired') { token = GESI.refreshToken(character[0]); }
-    var response = doRequest_('https://esi.evetech.net/v1/characters/' + character[1] + '/attributes/', token);    
-    result.push([
-      character[0],
-      response ? response.last_remap_date : 'N/A',
-      response ? response.memory : 'N/A',
-      response ? response.willpower : 'N/A',
-      response ? response.bonus_remaps : 'N/A',
-      response ? response.accrued_remap_cooldown_date : 'N/A',
-      response ? response.charisma : 'N/A/',
-      response ? response.intelligence : 'N/A',
-      response ? response.perception : 'N/A'
-    ])
-  });
+  try
+  {
+    var response = client.setFunction("characters_character_attributes").executeRaw({});
+  }
+  catch(e)
+  {
+    Logger.log("There was an error with this request")
+    Logger.log(e)
+    var response = client.setFunction("characters_character_attributes").executeRaw({});
+  }
+  result.push([
+      response ? response.last_remap_date : "N/A",
+      response ? response.memory : "N/A",
+      response ? response.willpower : "N/A",
+      response ? response.bonus_remaps : "N/A",
+      response ? response.accrued_remap_cooldown_date : "N/A",
+      response ? response.charisma : "N/A",
+      response ? response.intelligence : "N/A",
+      response ? response.perception : "N/A"
+    ]);
   return result;
 }
 
-function get_character_skills_all() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var auth_sheet = ss.getSheetByName('Auth Data');
-  var characters = auth_sheet.getDataRange().getValues();
+
+
+function get_skill_data(client)
+{
   var result = [];
-  characters.forEach(function(character) {
-    var token = GESI.getAccessToken(character[0]);
-    if (token === 'Expired') { token = GESI.refreshToken(character[0]); }
-    var response = doRequest_('https://esi.evetech.net/v4/characters/' + character[1] + '/skills/', token);
-    if (response.unallocated_sp != undefined && response.unallocated_sp != null && response.unallocated_sp != 0)
+  try
+  {
+    var response = client.setFunction("characters_character_skills").executeRaw({});
+  }
+  catch(e)
+  {
+    Logger.log("There was an error with this request")
+    Logger.log(e)
+    var response = client.setFunction("characters_character_skills").executeRaw({});
+  }
+  if (response.unallocated_sp != undefined && response.unallocated_sp != null && response.unallocated_sp != 0)
     {
       var totalSP = response.total_sp + response.unallocated_sp;
       result.push([
-        character[0],
         totalSP
         ])
     }
     else
     {
     result.push([
-      character[0],
       response ? response.total_sp : 'N/A'
     ])
     }
-  });
   return result;
 }
 
+
 function get_character_locations_all()
 {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var auth_sheet = ss.getSheetByName('Auth Data');
-  var characters = auth_sheet.getDataRange().getValues();
   var result = [];
-  characters.forEach(function(character) {
-    var token = GESI.getAccessToken(character[0]);
-    if (token === 'Expired') { token = GESI.refreshToken(character[0]); }
-    var response = doRequest_('https://esi.evetech.net/v1/characters/' + character[1] + '/location/', token);
+  GESI.invokeMultipleRaw("characters_character_location", GESI.getAuthenticatedCharacterNames()).forEach(function(response) {
     result.push([
-      character[0],
+      response.character_name,
       response ? response.solar_system_id : 'N/A'
     ])
   });
@@ -272,16 +271,12 @@ function refresh_character_locations_all()
 
 function get_character_wallets_all()
 {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var auth_sheet = ss.getSheetByName('Auth Data');
-  var characters = auth_sheet.getDataRange().getValues();
   var result = [];
-  characters.forEach(function(character){
-    var token = GESI.getAccessToken(character[0]);
-    if (token === 'Expired') { token = GESI.refreshToken(character[0]); }
-    var response = doRequest_('https://esi.evetech.net/v1/characters/' + character[1] + '/wallet/', token);
+  GESI.getAuthenticatedCharacterNames().forEach(function(character){
+    var client = GESI.getClient(character).setFunction("characters_character_wallet");
+    var response = client.executeRaw({});
     result.push([
-      character[0],
+      character,
       response
       ])
   });
@@ -335,29 +330,53 @@ function refreshPrices()
 
 function analyze_character_data()
 {
-  /* gets data from the spreadsheet */
   var headers = ["Name","Estimated SP","Skill ID","Skill Name","Skill Training Start","Skill Training End","Skill Queue End","Primary Attribute Value","Secondary Attribute Value","Training Speed","Character ID","Training Level","Subscription Type","Extraction Threshhold","Wallet Balance","System","Region","Hours Until Queue Ends"];
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var auth_sheet = ss.getSheetByName('Auth Data');
+  var ss = SpreadsheetApp.getActiveSpreadsheet(); 
   var skill_list = ss.getSheetByName('SkillsList').getDataRange().getValues();
   var characterInfo = ss.getSheetByName("SkillQueues").getRange("A2:Q").getValues();
-  var characters = auth_sheet.getDataRange().getValues();
-  /* gets all data for all characters from the API */
-  var attributes = get_character_attributes_all();
-  var skillqueue = get_character_skillqueues_all();
-  var skills = get_character_skills_all();
+  var characters = GESI.getAuthenticatedCharacterNames();
+  characters = characters.sort();
   var charAttributesObj = {};
   var currentDate = getCurrentDate();
   var hoursQueueEnd = 0;
   var result = new Array();
-  for (var x = 0; x<characters.length; x++)
+  var attributes = [];
+  var skillqueue = [];
+  var skills = [];
+  const properties = GESI.getAuthenticatedCharacters(); 
+  const authData = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Authenticated Characters').getDataRange().getValues();  
+  console.time("l");
+  authData.forEach((charRow) => {
+  const charData = properties[charRow[2]];
+  const client = GESI.getClientInternal(charRow[0], charRow[1], charData);
+  var skill_queue_data = get_skill_queue_data(client);
+    skill_queue_data[0].unshift(charRow[2]);
+    skill_queue_data = flatten(skill_queue_data);
+    skillqueue.push(skill_queue_data);
+    
+    var attributes_data = get_attribute_data(client);
+    attributes_data[0].unshift(charRow[2]);
+    attributes_data = flatten(attributes_data);
+    attributes.push(attributes_data);
+    
+    var skills_data = get_skill_data(client);
+    skills_data[0].unshift(charRow[2]);
+    skills_data = flatten(skills_data);
+    skills.push(skills_data);
+  });
+  attributes = attributes.sort();
+  skillqueue = skillqueue.sort();
+  skills = skills.sort();
+  console.timeEnd("l");
+  
+   for (var x = 0; x<characters.length; x++)
   {
-    if (characters[x][0] == attributes[x][0])
+    if (characters[x] == attributes[x][0])
     {
-      var walletBalance = getWalletInfo(characters[x][0],characterInfo);
-      var subInfo = getSubscriptionInfo(characters[x][0],characterInfo);
-      var threshholdInfo = getThreshholdInfo(characters[x][0],characterInfo);
-      var charlocationInfo = getLocationInfo(characters[x][0],characterInfo);
+      var walletBalance = getWalletInfo(characters[x],characterInfo);
+      var subInfo = getSubscriptionInfo(characters[x],characterInfo);
+      var threshholdInfo = getThreshholdInfo(characters[x],characterInfo);
+      var charlocationInfo = getLocationInfo(characters[x],characterInfo);
       var charSystem = charlocationInfo[0][0];
       var charRegion = charlocationInfo[0][1];
       charAttributesObj=
@@ -370,7 +389,7 @@ function analyze_character_data()
       };
       for (var y = 0; y<characters.length; y++)
       {
-        if (characters[x][0] == skillqueue[y][0])
+        if (characters[x] == skillqueue[y][0])
         {
           var activeskillID = skillqueue[y][1];
           var activeskillName = skillqueue[y][2];
@@ -404,20 +423,22 @@ function analyze_character_data()
       }
     for (var z = 0; z<characters.length; z++)
     {
-      if (characters[x][0] == skills[z][0])
+      if (characters[x] == skills[z][0])
       {
         var characterSP = skills[z][1];
         var totalSP = characterSP+gainedSP+previouslygainedsp;
       }
     }
    }
-   var output = [characters[x][0],totalSP, activeskillID, activeskillName,activeskillstartdate,activeskillenddate,activequeueenddate,primaryActiveAttributeValue,secondaryActiveAttributeValue,trainingSpeed,characters[x][1],activeskilltraininglevel,subInfo,threshholdInfo,walletBalance,charSystem,charRegion,hoursQueueEnd];
+   var output = [characters[x],totalSP, activeskillID, activeskillName,activeskillstartdate,activeskillenddate,activequeueenddate,primaryActiveAttributeValue,secondaryActiveAttributeValue,trainingSpeed,GESI.getCharacterData(characters[x]).character_id,activeskilltraininglevel,subInfo,threshholdInfo,walletBalance,charSystem,charRegion,hoursQueueEnd];
    result.push(output); 
   }
   result = result.sort();
   result.unshift(headers);
   return result;
 }
+
+
 
 function output_character_data()
 {
@@ -838,3 +859,4 @@ function expandExtractionView()
   sheet.unhideColumn(range3);
   sheet.unhideColumn(range4);
 } 
+
