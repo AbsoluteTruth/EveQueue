@@ -3,7 +3,7 @@
 **********************************************************************************************************
 Name: BrainFarmer
 Author: Absolute Truth
-Script Version: 3.0
+Script Version: 3.1
 Release Date: May 25, 2020
 */
 
@@ -479,27 +479,6 @@ return a.concat(b);
 **********************************************************************************************************/
 
 /**
-Fetches and returns the responses for API calls
-@returns a parsed JSON response
-*/
-
-function doRequest_(path, token) {
-  var options = {method: 'GET', headers: {'User-Agent': 'GESI User', 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token}};
-  try
-  {
-    var response = UrlFetchApp.fetch(path, options);
-    return JSON.parse(response.getContentText());
-  }
-  catch(e)
-  {
-    Logger.log("There was an error with this request")
-    Logger.log(e)
-    var response = UrlFetchApp.fetch(path, options);
-    return JSON.parse(response.getContentText());
-  }
-}
-
-/**
 Utility to flatten array
 @returns a flattened array
 */
@@ -639,20 +618,6 @@ function writeToSheet(sheetName,cellRange,data)
   sss.getRange(destinationRange).setValues(data);
 }
 
-/*
-Utility to flatten array
-*/
-function flatten(ary, ret) {
-    ret = ret === undefined ? [] : ret;
-    for (var i = 0; i < ary.length; i++) {
-        if (Array.isArray(ary[i])) {
-            flatten(ary[i], ret);
-        } else {
-            ret.push(ary[i]);
-        }
-    }
-    return ret;
-}
 
 /*
 Deletes a character completely from the sheet, including Auth data.
@@ -712,10 +677,6 @@ function editCharacter()
   Browser.msgBox("Character not found!");
   }
 }
-
-
-
-
 
 function setMainChar()
 {
